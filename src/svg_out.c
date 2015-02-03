@@ -323,7 +323,7 @@ void SvgTextR(struct ADrawTag *ctx,
 
     if(url)
     {
-        fprintf(getSvgFile(ctx), "</a>", url);
+        fprintf(getSvgFile(ctx), "</a>");
     }
 }
 
@@ -353,7 +353,7 @@ void SvgTextL(struct ADrawTag *ctx,
 
     if(url)
     {
-        fprintf(getSvgFile(ctx), "</a>", url);
+        fprintf(getSvgFile(ctx), "</a>");
     }
 }
 
@@ -384,7 +384,7 @@ void SvgTextC(struct ADrawTag *ctx,
 
     if(url)
     {
-        fprintf(getSvgFile(ctx), "</a>", url);
+        fprintf(getSvgFile(ctx), "</a>");
     }
 }
 

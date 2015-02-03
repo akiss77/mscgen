@@ -600,9 +600,9 @@ static bool isBroadcastArc(const char *entity)
 
 /** Get the skip value in pixels for some the current arc in the Msc.
  */
-static int getArcGradient(Msc m, const RowInfo *rowInfo, unsigned int row)
+static int getArcGradient(Msc m, MscArcIter *ai, const RowInfo *rowInfo, unsigned int row)
 {
-    const char   *s = MscGetCurrentArcAttrib(m, MSC_ATTR_ARC_SKIP);
+    const char   *s = MscGetArcAttrib(ai, MSC_ATTR_ARC_SKIP);
     unsigned int  v = gOpts.arcGradient;
 
     if(s != NULL && rowInfo != NULL)
@@ -875,6 +875,7 @@ static RowInfo *computeCanvasSize(Msc           m,
     const unsigned int textHeight = drw.textHeight(&drw);
     RowInfo      *rowHeight;
     unsigned int  nextYmin, ymin, ymax, yskipmax, row;
+    MscArcIter    ai;
 
     /* Allocate storage for the height of each row */
     rowHeight = zalloc_s(sizeof(RowInfo) * rowCount);
@@ -884,11 +885,10 @@ static RowInfo *computeCanvasSize(Msc           m,
     yskipmax = 0;
     ymax = 0;
 
-    MscResetArcIterator(m);
-    do
+    for(ai = MscArcIterBegin(m); !MscArcIterEnd(&ai); MscNextArc(&ai))
     {
-        const MscArcType   arcType           = MscGetCurrentArcType(m);
-        const int          arcGradient       = isBoxArc(arcType) ? 0 : getArcGradient(m, NULL, 0);
+        const MscArcType   arcType           = MscGetArcType(&ai);
+        const int          arcGradient       = isBoxArc(arcType) ? 0 : getArcGradient(m, &ai, NULL, 0);
         char             **arcLabelLines     = NULL;
         unsigned int       arcLabelLineCount = 0;
         int                startCol = -1, endCol = -1;
@@ -907,8 +907,8 @@ static RowInfo *computeCanvasSize(Msc           m,
             /* Get the entity indices */
             if(arcType != MSC_ARC_DISCO && arcType != MSC_ARC_DIVIDER && arcType != MSC_ARC_SPACE)
             {
-                startCol = MscGetEntityIndex(m, MscGetCurrentArcSource(m));
-                endCol   = MscGetEntityIndex(m, MscGetCurrentArcDest(m));
+                startCol = MscGetEntityIndex(m, MscGetArcSource(&ai));
+                endCol   = MscGetEntityIndex(m, MscGetArcDest(&ai));
             }
             else
             {
@@ -919,7 +919,7 @@ static RowInfo *computeCanvasSize(Msc           m,
 
             /* Work out how the label fits the gap between entities */
             arcLabelLineCount = computeLabelLines(m, arcType, &arcLabelLines,
-                                                  MscGetCurrentArcAttrib(m, MSC_ATTR_LABEL),
+                                                  MscGetArcAttrib(&ai, MSC_ATTR_LABEL),
                                                   startCol, endCol);
 
             assert(row < rowCount);
@@ -967,7 +967,6 @@ static RowInfo *computeCanvasSize(Msc           m,
         }
 
     }
-    while(MscNextArc(m));
 
     if(ymax < yskipmax)
         ymax = yskipmax;
@@ -1556,17 +1555,18 @@ static void arcLine(Msc               m,
  */
 bool checkMsc(Msc m)
 {
+    MscArcIter ai;
+
     /* Check all arc entites are known */
-    MscResetArcIterator(m);
-    do
+    for(ai = MscArcIterBegin(m); !MscArcIterEnd(&ai); MscNextArc(&ai))
     {
-        const MscArcType arcType  = MscGetCurrentArcType(m);
+        const MscArcType arcType  = MscGetArcType(&ai);
 
         if(arcType != MSC_ARC_PARALLEL && arcType != MSC_ARC_DISCO &&
            arcType != MSC_ARC_DIVIDER && arcType != MSC_ARC_SPACE)
         {
-            const char *src = MscGetCurrentArcSource(m);
-            const char *dst = MscGetCurrentArcDest(m);
+            const char *src = MscGetArcSource(&ai);
+            const char *dst = MscGetArcDest(&ai);
             const int   startCol = MscGetEntityIndex(m, src);
             const int   endCol   = MscGetEntityIndex(m, dst);
 
@@ -1574,19 +1574,18 @@ bool checkMsc(Msc m)
             if(startCol == -1)
             {
                 fprintf(stderr, "Error detected at line %u: Unknown source entity '%s'.\n",
-                        MscGetCurrentArcInputLine(m), src);
+                        MscGetArcInputLine(&ai), src);
                 return false;
             }
 
             if(endCol == -1 && !isBroadcastArc(dst))
             {
                 fprintf(stderr, "Error detected at line %u: Unknown destination entity '%s'.\n",
-                        MscGetCurrentArcInputLine(m), dst);
+                        MscGetArcInputLine(&ai), dst);
                 return false;
             }
         }
     }
-    while(MscNextArc(m));
 
     return true;
 }
@@ -1603,6 +1602,8 @@ int main(const int argc, const char *argv[])
     RowInfo         *rowInfo;
     bool             addLines;
     float            f;
+    MscEntityIter    ei;
+    MscArcIter       ai;
 
     /* Parse the command line options */
     if(!CmdParse(gClSwitches, sizeof(gClSwitches) / sizeof(CmdSwitch), argc - 1, &argv[1], "-i"))
@@ -1821,10 +1822,10 @@ int main(const int argc, const char *argv[])
     }
 
     /* Work out the entityHeadGap */
-    MscResetEntityIterator(m);
+    ei = MscEntityIterBegin(m);
     for(col = 0; col < MscGetNumEntities(m); col++)
     {
-        unsigned int lines = countLines(MscGetCurrentEntAttrib(m, MSC_ATTR_LABEL));
+        unsigned int lines = countLines(MscGetEntAttrib(&ei, MSC_ATTR_LABEL));
         unsigned int gap;
 
         /* Get the required gap */
@@ -1834,7 +1835,7 @@ int main(const int argc, const char *argv[])
             gOpts.entityHeadGap = gap;
         }
 
-        MscNextEntity(m);
+        MscNextEntity(&ei);
     }
 
     /* Work out the width and height of the canvas */
@@ -1867,7 +1868,7 @@ int main(const int argc, const char *argv[])
     entColourRef = malloc_s(MscGetNumEntities(m) * sizeof(ADrawColour));
 
     /* Draw the entity headings */
-    MscResetEntityIterator(m);
+    ei = MscEntityIterBegin(m);
     for(col = 0; col < MscGetNumEntities(m); col++)
     {
         unsigned int x = (gOpts.entitySpacing / 2) + (gOpts.entitySpacing * col);
@@ -1877,15 +1878,15 @@ int main(const int argc, const char *argv[])
         entityText(ismap,
                    x,
                    gOpts.entityHeadGap - (drw.textHeight(&drw) / 2),
-                   MscGetCurrentEntAttrib(m, MSC_ATTR_LABEL),
-                   MscGetCurrentEntAttrib(m, MSC_ATTR_URL),
-                   MscGetCurrentEntAttrib(m, MSC_ATTR_ID),
-                   MscGetCurrentEntAttrib(m, MSC_ATTR_IDURL),
-                   MscGetCurrentEntAttrib(m, MSC_ATTR_TEXT_COLOUR),
-                   MscGetCurrentEntAttrib(m, MSC_ATTR_TEXT_BGCOLOUR));
+                   MscGetEntAttrib(&ei, MSC_ATTR_LABEL),
+                   MscGetEntAttrib(&ei, MSC_ATTR_URL),
+                   MscGetEntAttrib(&ei, MSC_ATTR_ID),
+                   MscGetEntAttrib(&ei, MSC_ATTR_IDURL),
+                   MscGetEntAttrib(&ei, MSC_ATTR_TEXT_COLOUR),
+                   MscGetEntAttrib(&ei, MSC_ATTR_TEXT_BGCOLOUR));
 
         /* Get the colours */
-        line = MscGetCurrentEntAttrib(m, MSC_ATTR_LINE_COLOUR);
+        line = MscGetEntAttrib(&ei, MSC_ATTR_LINE_COLOUR);
         if(line != NULL)
         {
             entColourRef[col] = ADrawGetColour(line);
@@ -1895,26 +1896,25 @@ int main(const int argc, const char *argv[])
             entColourRef[col] = ADRAW_COL_BLACK;
         }
 
-        MscNextEntity(m);
+        MscNextEntity(&ei);
     }
 
     /* Draw the arcs */
     addLines = true;
     row = 0;
 
-    MscResetArcIterator(m);
-    do
+    for(ai = MscArcIterBegin(m); !MscArcIterEnd(&ai); MscNextArc(&ai))
     {
-        const MscArcType   arcType           = MscGetCurrentArcType(m);
-        const char        *arcUrl            = MscGetCurrentArcAttrib(m, MSC_ATTR_URL);
-        const char        *arcId             = MscGetCurrentArcAttrib(m, MSC_ATTR_ID);
-        const char        *arcIdUrl          = MscGetCurrentArcAttrib(m, MSC_ATTR_IDURL);
-        const char        *arcTextColour     = MscGetCurrentArcAttrib(m, MSC_ATTR_TEXT_COLOUR);
-        const char        *arcTextBgColour   = MscGetCurrentArcAttrib(m, MSC_ATTR_TEXT_BGCOLOUR);
-        const char        *arcLineColour     = MscGetCurrentArcAttrib(m, MSC_ATTR_LINE_COLOUR);
-        const int          arcGradient       = isBoxArc(arcType) ? 0 : getArcGradient(m, rowInfo, row);
-        const int          arcHasArrows      = MscGetCurrentArcAttrib(m, MSC_ATTR_NO_ARROWS) == NULL;
-        const int          arcHasBiArrows    = MscGetCurrentArcAttrib(m, MSC_ATTR_BI_ARROWS) != NULL;
+        const MscArcType   arcType           = MscGetArcType(&ai);
+        const char        *arcUrl            = MscGetArcAttrib(&ai, MSC_ATTR_URL);
+        const char        *arcId             = MscGetArcAttrib(&ai, MSC_ATTR_ID);
+        const char        *arcIdUrl          = MscGetArcAttrib(&ai, MSC_ATTR_IDURL);
+        const char        *arcTextColour     = MscGetArcAttrib(&ai, MSC_ATTR_TEXT_COLOUR);
+        const char        *arcTextBgColour   = MscGetArcAttrib(&ai, MSC_ATTR_TEXT_BGCOLOUR);
+        const char        *arcLineColour     = MscGetArcAttrib(&ai, MSC_ATTR_LINE_COLOUR);
+        const int          arcGradient       = isBoxArc(arcType) ? 0 : getArcGradient(m, &ai, rowInfo, row);
+        const int          arcHasArrows      = MscGetArcAttrib(&ai, MSC_ATTR_NO_ARROWS) == NULL;
+        const int          arcHasBiArrows    = MscGetArcAttrib(&ai, MSC_ATTR_BI_ARROWS) != NULL;
         char             **arcLabelLines     = NULL;
         unsigned int       arcLabelLineCount = 0;
         int                startCol = -1, endCol = -1;
@@ -1941,29 +1941,29 @@ int main(const int argc, const char *argv[])
             /* Get the entity indices */
             if(arcType != MSC_ARC_DISCO && arcType != MSC_ARC_DIVIDER && arcType != MSC_ARC_SPACE)
             {
-                startCol = MscGetEntityIndex(m, MscGetCurrentArcSource(m));
-                endCol   = MscGetEntityIndex(m, MscGetCurrentArcDest(m));
+                startCol = MscGetEntityIndex(m, MscGetArcSource(&ai));
+                endCol   = MscGetEntityIndex(m, MscGetArcDest(&ai));
 
                 /* Check that the start column is known and the end column is
                  *  known, or that it's a broadcast arc
                  */
                 assert(startCol != -1);
-                assert(endCol != -1 || isBroadcastArc(MscGetCurrentArcDest(m)));
+                assert(endCol != -1 || isBroadcastArc(MscGetArcDest(&ai)));
 
                 /* Check for entity colouring if not set explicity on the arc */
                 if(arcTextColour == NULL)
                 {
-                    arcTextColour = MscGetEntAttrib(m, startCol, MSC_ATTR_ARC_TEXT_COLOUR);
+                    arcTextColour = MscGetEntIdxAttrib(m, startCol, MSC_ATTR_ARC_TEXT_COLOUR);
                 }
 
                 if(arcTextBgColour == NULL)
                 {
-                    arcTextBgColour = MscGetEntAttrib(m, startCol, MSC_ATTR_ARC_TEXT_BGCOLOUR);
+                    arcTextBgColour = MscGetEntIdxAttrib(m, startCol, MSC_ATTR_ARC_TEXT_BGCOLOUR);
                 }
 
                 if(arcLineColour == NULL)
                 {
-                    arcLineColour = MscGetEntAttrib(m, startCol, MSC_ATTR_ARC_LINE_COLOUR);
+                    arcLineColour = MscGetEntIdxAttrib(m, startCol, MSC_ATTR_ARC_LINE_COLOUR);
                 }
 
             }
@@ -1976,11 +1976,11 @@ int main(const int argc, const char *argv[])
 
             /* Work out how the label fits the gap between entities */
             arcLabelLineCount = computeLabelLines(m, arcType, &arcLabelLines,
-                                                  MscGetCurrentArcAttrib(m, MSC_ATTR_LABEL),
+                                                  MscGetArcAttrib(&ai, MSC_ATTR_LABEL),
                                                   startCol, endCol);
 
             /* Check if this is a broadcast message */
-            if(isBroadcastArc(MscGetCurrentArcDest(m)))
+            if(isBroadcastArc(MscGetArcDest(&ai)))
             {
                 unsigned int t;
 
@@ -2079,7 +2079,6 @@ int main(const int argc, const char *argv[])
             addLines = true;
         }
     }
-    while(MscNextArc(m));
 
     /* Skip arcs may require the entity lines to be extended */
     entityLines(m,

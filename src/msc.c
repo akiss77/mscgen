@@ -81,9 +81,6 @@ struct MscTag
     struct MscOptTag        *optList;
     struct MscEntityListTag *entityList;
     struct MscArcListTag    *arcList;
-
-    struct MscArcTag        *nextArc;
-    struct MscEntityTag     *nextEntity;
 };
 
 /***************************************************************************
@@ -491,10 +488,6 @@ struct MscTag *MscAlloc(struct MscOptTag        *optList,
     m->entityList = entityList;
     m->arcList    = arcList;
 
-    /* Reset the iterators */
-    MscResetEntityIterator(m);
-    MscResetArcIterator(m);
-
     return m;
 }
 
@@ -608,148 +601,103 @@ int MscGetEntityIndex(struct MscTag *m, const char *label)
 }
 
 
-void MscResetEntityIterator(struct MscTag *m)
+MscEntityIter MscEntityIterBegin(struct MscTag *m)
 {
-    m->nextEntity = m->entityList->head;
+    MscEntityIter i = { m->entityList->head };
+    return i;
 }
 
 
-bool MscNextEntity(struct MscTag *m)
+bool MscEntityIterEnd(MscEntityIter *i)
 {
-    if(m->nextEntity->next != NULL)
-    {
-        m->nextEntity = m->nextEntity->next;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return i->entity == NULL;
 }
 
 
-const char *MscGetCurrentEntAttrib(struct MscTag *m, MscAttribType a)
+void MscNextEntity(MscEntityIter *i)
 {
-    const char          *r;
+    i->entity = i->entity->next;
+}
 
-    if(!m->nextEntity)
-    {
-       return NULL;
-    }
 
-    r = findAttrib(m->nextEntity->attr, a);
+const char *MscGetEntAttrib(MscEntityIter *i, MscAttribType a)
+{
+    const char *r = findAttrib(i->entity->attr, a);
 
     /* If the entity label was sought but not found, return entity name */
-    if(r == NULL && a == MSC_ATTR_LABEL)
-    {
-        return m->nextEntity->label;
-    }
-    else
-    {
-        return r;
-    }
+    return r == NULL && a == MSC_ATTR_LABEL ? i->entity->label : r;
 }
 
 
-const char *MscGetEntAttrib(Msc m, unsigned int entIdx, MscAttribType a)
+const char *MscGetEntIdxAttrib(Msc m, unsigned int entIdx, MscAttribType a)
 {
-    struct MscEntityTag *entity;
-    const char          *r;
+    MscEntityIter i = MscEntityIterBegin(m);
 
     /* Find the entity */
-    entity = m->entityList->head;
-    while(entIdx > 0 && entity != NULL)
+    while(entIdx > 0 && !MscEntityIterEnd(&i))
     {
-        entity = entity->next;
+        MscNextEntity(&i);
         entIdx--;
     }
 
     /* Search the attribute list if the entity was found */
-    if(entity)
-    {
-        r = findAttrib(entity->attr, a);
-
-        /* If the entity label was sought but not found, return entity name */
-        if(r == NULL && a == MSC_ATTR_LABEL)
-        {
-            return m->nextEntity->label;
-        }
-        else
-        {
-            return r;
-        }
-    }
-    else
-    {
-        /* Entity was not found */
-        return NULL;
-    }
+    return !MscEntityIterEnd(&i) ? MscGetEntAttrib(&i, a) : NULL;
 }
 
 
-void MscResetArcIterator(struct MscTag *m)
+MscArcIter MscArcIterBegin(struct MscTag *m)
 {
-    m->nextArc    = m->arcList->head;
+    MscArcIter i = { m->arcList->head };
+    return i;
 }
 
 
-bool MscNextArc(struct MscTag *m)
+bool MscArcIterEnd(MscArcIter *i)
 {
-    if(m->nextArc->next != NULL)
-    {
-        m->nextArc = m->nextArc->next;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return i->arc == NULL;
 }
 
 
-const char *MscGetCurrentArcSource(struct MscTag *m)
+void MscNextArc(MscArcIter *i)
 {
-    return m->nextArc ? m->nextArc->src : NULL;
+    i->arc = i->arc->next;
 }
 
 
-const char *MscGetCurrentArcDest(struct MscTag *m)
+const char *MscGetArcSource(MscArcIter *i)
 {
-    return m->nextArc ? m->nextArc->dst : NULL;
+    return i->arc->src;
 }
 
 
-MscArcType MscGetCurrentArcType(struct MscTag *m)
+const char *MscGetArcDest(MscArcIter *i)
 {
-    return m->nextArc ? m->nextArc->type : MSC_INVALID_ARC_TYPE;
+    return i->arc->dst;
 }
 
 
-const char *MscGetCurrentArcAttrib(struct MscTag *m, MscAttribType a)
+MscArcType MscGetArcType(MscArcIter *i)
 {
-    struct MscAttribTag *attr;
+    return i->arc->type;
+}
 
-    if(!m->nextArc)
-    {
-       return NULL;
-    }
 
-    attr = m->nextArc->attr;
+const char *MscGetArcAttrib(MscArcIter *i, MscAttribType a)
+{
+    struct MscAttribTag *attr = i->arc->attr;
 
     while(attr != NULL && attr->type != a)
     {
         attr = attr->next;
     }
 
-    if(attr != NULL)
-    {
-        return attr->value;
-    }
-    else
-    {
-        return NULL;
-    }
+    return attr != NULL ? attr->value : NULL;
+}
 
+
+unsigned int MscGetArcInputLine(MscArcIter *i)
+{
+    return i->arc->inputLine;
 }
 
 
@@ -764,19 +712,6 @@ bool MscGetOptAsFloat(struct MscTag *m, MscOptType type, float *const f)
     }
 
     return false;
-}
-
-
-unsigned int MscGetCurrentArcInputLine(struct MscTag *m)
-{
-    if(m->nextArc)
-    {
-       return m->nextArc->inputLine;
-    }
-    else
-    {
-        return 0;
-    }
 }
 
 

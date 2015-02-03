@@ -107,6 +107,22 @@ typedef struct MscAttribTag     *MscAttrib;
 
 
 /***************************************************************************
+ * Iterator types
+ ***************************************************************************/
+
+typedef struct
+{
+    MscEntity entity;
+}
+MscEntityIter;
+
+typedef struct
+{
+    MscArc arc;
+}
+MscArcIter;
+
+/***************************************************************************
  * MSC Building Functions
  ***************************************************************************/
 
@@ -214,27 +230,31 @@ int           MscGetEntityIndex(struct MscTag *m, const char *label);
  * @{
  */
 
-/** Reset the entity interator.
- * This moves the pointer to the current entity to the head of the list.
+/** Returns an entity iterator.
+ * The current entity of the iterator will be the head of the list.
  */
-void          MscResetEntityIterator(Msc m);
+MscEntityIter  MscEntityIterBegin(Msc m);
+
+/** Checks whether the iterator moved along the list.
+ * \retval true if the end of the list has been reached.
+ * \retval false if the current entity is valid.
+ */
+bool           MscEntityIterEnd(MscEntityIter *i);
 
 /** Move to the next entity in the MSC.
- * \retval true if there is another entity.
- * \retval false if the end of the list has been reached.
  */
-bool         MscNextEntity(struct MscTag *m);
+void           MscNextEntity(MscEntityIter *i);
 
 /** Get the value of some attribute for the current entity.
  * \retval The attribute string, or NULL if unset.
  */
-const char   *MscGetCurrentEntAttrib(Msc m, MscAttribType a);
+const char    *MscGetEntAttrib(MscEntityIter *i, MscAttribType a);
 
 /** Get an attribute associated with some entity.
  * \param[in] entIdx  The index of the entity.
  * \retval The attribute string, or NULL if unset.
  */
-const char   *MscGetEntAttrib(Msc m, unsigned int entIdx, MscAttribType a);
+const char    *MscGetEntIdxAttrib(Msc m, unsigned int entIdx, MscAttribType a);
 
 /** @} */
 
@@ -246,45 +266,49 @@ const char   *MscGetEntAttrib(Msc m, unsigned int entIdx, MscAttribType a);
  * @{
  */
 
-/** Reset the arc iterator.
- * This moves the pointer to the current arc to the head of the list.
+/** Returns an arc iterator.
+ * The current arc of the iterator will be the head of the list.
  */
-void          MscResetArcIterator   (Msc m);
+MscArcIter   MscArcIterBegin(Msc m);
+
+/** Checks whether the iterator moved along the list.
+ * \retval true if the end of the list has been reached.
+ * \retval false if the current arc is valid.
+ */
+bool         MscArcIterEnd(MscArcIter *i);
 
 /** Move to the next arc in the MSC.
  * \retval true if there is another arc.
  * \retval false if the end of the list has been reached.
  */
-bool         MscNextArc(struct MscTag *m);
-
+void         MscNextArc(MscArcIter *i);
 
 /** Get the name of the entity from which the current arc originates.
  * \returns The label for the entity from which the current arc starts.
  *           The returned string must not be modified.
  */
-const char   *MscGetCurrentArcSource(Msc m);
-
+const char  *MscGetArcSource(MscArcIter *i);
 
 /** Get the name of the entity at which the current arc terminates.
  * \retval The label for the entity at which the current arc stops.
  *          The returned string must not be modified.
  */
-const char   *MscGetCurrentArcDest(Msc m);
+const char  *MscGetArcDest(MscArcIter *i);
 
 /** Get the type for some arc.
  *
  */
-MscArcType    MscGetCurrentArcType(struct MscTag *m);
+MscArcType   MscGetArcType(MscArcIter *i);
 
 /** Get the value of some attribute for the current arc.
  * \returns The attribute string, or NULL if unset.
  */
-const char   *MscGetCurrentArcAttrib(Msc m, MscAttribType a);
+const char  *MscGetArcAttrib(MscArcIter *i, MscAttribType a);
 
 /** Get the line of the input file at which the current arc was defined.
  * \returns The line number of the input file.
  */
-unsigned int  MscGetCurrentArcInputLine(Msc m);
+unsigned int MscGetArcInputLine(MscArcIter *i);
 
 /** @} */
 

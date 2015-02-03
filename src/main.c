@@ -2006,13 +2006,25 @@ int main(const int argc, const char *argv[])
                     {
                         int col = MscGetEntityIndex(m, MscGetArcSource(&peek));
                         assert(col != -1);
-                        entActivationMax[col]++;
+                        if(entActivation[ent] >= 0)
+                        {
+                            entActivationMax[col]++;
+                        }
                     }
                     else if(MscGetArcType(&peek) == MSC_ARC_DEACT)
                     {
                         int col = MscGetEntityIndex(m, MscGetArcSource(&peek));
                         assert(col != -1);
-                        entActivationMin[col]--;
+                        if(entActivation[ent] > 0)
+                        {
+                            entActivationMin[col]--;
+                        }
+                    }
+                    else if(MscGetArcType(&peek) == MSC_ARC_DESTR)
+                    {
+                        int col = MscGetEntityIndex(m, MscGetArcSource(&peek));
+                        assert(col != -1);
+                        entActivationMin[col] = -1;
                     }
 
                     MscNextArc(&peek);
@@ -2191,6 +2203,22 @@ int main(const int argc, const char *argv[])
                     drw.line(&drw, x - gOpts.activationWidth / 2, ymid, x + gOpts.activationWidth / 2, ymid);
                     drw.line(&drw, x - gOpts.activationWidth / 2, ymin, x - gOpts.activationWidth / 2, ymid);
                     drw.line(&drw, x + gOpts.activationWidth / 2, ymin, x + gOpts.activationWidth / 2, ymid);
+                }
+                else if(arcType == MSC_ARC_DESTR)
+                {
+                    unsigned int x = (startCol * gOpts.entitySpacing) + (gOpts.entitySpacing / 2);
+
+                    entActivation[startCol] = -1;
+
+                    if(addLines)
+                    {
+                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef, entActivationMin);
+                    }
+
+                    drw.setPen(&drw, entColourRef[startCol]);
+                    drw.line(&drw, x, ymin, x, ymid);
+                    drw.line(&drw, x - gOpts.activationWidth / 2, ymid - gOpts.activationWidth / 2, x + gOpts.activationWidth / 2, ymid + gOpts.activationWidth / 2);
+                    drw.line(&drw, x - gOpts.activationWidth / 2, ymid + gOpts.activationWidth / 2, x + gOpts.activationWidth / 2, ymid - gOpts.activationWidth / 2);
                 }
                 else
                 {

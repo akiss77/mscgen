@@ -83,6 +83,7 @@ typedef enum
     MSC_ARC_LOSS,       /* -x or x- */
     MSC_ARC_ACT,
     MSC_ARC_DEACT,
+    MSC_ARC_DESTR,
 
     MSC_INVALID_ARC_TYPE
 }

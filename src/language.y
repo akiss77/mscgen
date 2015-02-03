@@ -73,7 +73,8 @@ void yyerror(void *unused, const char *str)
                                       "TOK_REL_LOSS_TO",        "TOK_REL_LOSS_FROM",
                                       "TOK_OPT_ARCGRADIENT",    "TOK_ATTR_ARC_SKIP",
                                       "TOK_OPT_WORDWRAPARCS",   "TOK_REL_NOTE",
-                                      "TOK_LIFE_ACT",           "TOK_LIFE_DEACT" };
+                                      "TOK_LIFE_ACT",           "TOK_LIFE_DEACT",
+                                      "TOK_LIFE_DESTR" };
 
     static const char *tokRepl[] =  { "'{'",             "'}'",
                                       "'['",             "']'",
@@ -98,7 +99,8 @@ void yyerror(void *unused, const char *str)
                                       "'-x'",            "'x-'",
                                       "'arcgradient'",   "'arcskip'",
                                       "'wordwraparcs'",  "'note'",
-                                      "'+'",             "'-'" };
+                                      "'+'",             "'-'",
+                                      "'~'" };
 
     static const int tokArrayLen = sizeof(tokNames) / sizeof(char *);
 
@@ -241,7 +243,7 @@ Msc MscParse(FILE *in)
        TOK_REL_CALLBACK_BI TOK_REL_CALLBACK_TO TOK_REL_CALLBACK_FROM
        TOK_REL_BOX         TOK_REL_ABOX
        TOK_REL_RBOX        TOK_REL_NOTE
-       TOK_LIFE_ACT        TOK_LIFE_DEACT
+       TOK_LIFE_ACT        TOK_LIFE_DEACT      TOK_LIFE_DESTR
        TOK_SPECIAL_ARC     TOK_OPT_HSCALE
        TOK_OPT_WIDTH       TOK_OPT_ARCGRADIENT
        TOK_OPT_WORDWRAPARCS
@@ -279,7 +281,7 @@ Msc MscParse(FILE *in)
                    TOK_REL_LOSS_TO TOK_REL_LOSS_FROM
                    TOK_SPECIAL_ARC TOK_REL_BOX TOK_REL_ABOX TOK_REL_RBOX TOK_REL_NOTE
                    TOK_REL_SIG TOK_REL_METHOD TOK_REL_RETVAL TOK_REL_DOUBLE
-                   TOK_LIFE_ACT TOK_LIFE_DEACT
+                   TOK_LIFE_ACT TOK_LIFE_DEACT TOK_LIFE_DESTR
 %type <attrib>     attrlist attr
 %type <attribType> attrval
                    TOK_ATTR_LABEL TOK_ATTR_URL TOK_ATTR_ID TOK_ATTR_IDURL
@@ -401,7 +403,7 @@ arcrel:       TOK_SPECIAL_ARC
     $$ = MscAllocArc($3, strdup_s("*"), $2, lex_getlinenum());
 };
 
-life_event:    TOK_LIFE_ACT | TOK_LIFE_DEACT;
+life_event:    TOK_LIFE_ACT | TOK_LIFE_DEACT | TOK_LIFE_DESTR;
 relation_box:  TOK_REL_BOX | TOK_REL_ABOX | TOK_REL_RBOX | TOK_REL_NOTE;
 relation_line: TOK_REL_SIG | TOK_REL_METHOD | TOK_REL_RETVAL | TOK_REL_DOUBLE;
 relation_bi:   TOK_REL_SIG_BI | TOK_REL_METHOD_BI | TOK_REL_RETVAL_BI | TOK_REL_CALLBACK_BI | TOK_REL_DOUBLE_BI;

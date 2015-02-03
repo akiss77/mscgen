@@ -121,6 +121,7 @@ RBOX|rbox                             yylval.arctype = MSC_ARC_RBOX;     return 
 NOTE|note                             yylval.arctype = MSC_ARC_NOTE;     return TOK_REL_NOTE;           /* note */
 \+                                    yylval.arctype = MSC_ARC_ACT;      return TOK_LIFE_ACT;           /* + */
 -                                     yylval.arctype = MSC_ARC_DEACT;    return TOK_LIFE_DEACT;         /* - */
+\~                                    yylval.arctype = MSC_ARC_DESTR;    return TOK_LIFE_DESTR;         /* ~ */
 [A-Za-z0-9_]+                         yylval.string = strdup_s(yytext);  return TOK_STRING;
 \"(\\\"|[^\"])*\"                     yylval.string = trimQstring(strdup_s(yytext)); return TOK_QSTRING;
 =                                     return TOK_EQUAL;

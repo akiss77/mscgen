@@ -116,6 +116,9 @@ typedef struct GlobalOptionsTag
 
     /** Horizontal gap between text and horizontal lines. */
     unsigned int textHGapPost;
+
+    /** Horizontal width of activation boxes. */
+    unsigned int activationWidth;
 }
 GlobalOptions;
 
@@ -194,7 +197,9 @@ static GlobalOptions gOpts =
     12,
 
     /* textHGapPre, textHGapPost */
-    2, 2
+    2, 2,
+
+    12      /* activationWidth */
 };
 
 /** The drawing. */
@@ -993,7 +998,8 @@ static void entityLines(Msc                m,
                         const unsigned int ymin,
                         const unsigned int ymax,
                         bool               dotted,
-                        const ADrawColour *colourRefs)
+                        const ADrawColour *colourRefs,
+                        int               *activations)
 {
     unsigned int t;
 
@@ -1001,15 +1007,40 @@ static void entityLines(Msc                m,
     {
         unsigned int x = (gOpts.entitySpacing / 2) + (gOpts.entitySpacing * t);
 
-        drw.setPen(&drw, colourRefs[t]);
+        if (activations[t] > 0)
+        {
+            int a;
 
-        if(dotted)
-        {
-            drw.dottedLine(&drw, x, ymin, x, ymax);
+            for (a = 0; a < activations[t]; a++)
+            {
+                drw.setPen(&drw, ADRAW_COL_WHITE);
+                drw.filledRectangle(&drw, x + a * (gOpts.activationWidth - 1) / 2, ymin, x + a * gOpts.activationWidth / 2, ymax);
+
+                drw.setPen(&drw, colourRefs[t]);
+                if(dotted)
+                {
+                    drw.dottedLine(&drw, (a * gOpts.activationWidth / 2) + (x - gOpts.activationWidth / 2), ymin, (a * gOpts.activationWidth / 2) + (x - gOpts.activationWidth / 2), ymax);
+                    drw.dottedLine(&drw, (a * gOpts.activationWidth / 2) + (x + gOpts.activationWidth / 2), ymin, (a * gOpts.activationWidth / 2) + (x + gOpts.activationWidth / 2), ymax);
+                }
+                else
+                {
+                    drw.line(&drw, (a * gOpts.activationWidth / 2) + (x - gOpts.activationWidth / 2), ymin, (a * gOpts.activationWidth / 2) + (x - gOpts.activationWidth / 2), ymax);
+                    drw.line(&drw, (a * gOpts.activationWidth / 2) + (x + gOpts.activationWidth / 2), ymin, (a * gOpts.activationWidth / 2) + (x + gOpts.activationWidth / 2), ymax);
+                }
+            }
         }
-        else
+        else if (activations[t] == 0)
         {
-            drw.line(&drw, x, ymin, x, ymax);
+            drw.setPen(&drw, colourRefs[t]);
+
+            if(dotted)
+            {
+                drw.dottedLine(&drw, x, ymin, x, ymax);
+            }
+            else
+            {
+                drw.line(&drw, x, ymin, x, ymax);
+            }
         }
     }
 
@@ -1334,6 +1365,8 @@ static void arcText(Msc                m,
  *                      the ending column.
  * \param  startCol    Starting column for the arc.
  * \param  endCol      Column at which the arc terminates.
+ * \param  startColAct Activation for starting column.
+ * \param  endColAct   Activation for ending column.
  * \param  hasArrows   If true, draw arc arrows, otherwise omit them.
  * \param  hasBiArrows If true, has arrows in both directions.
  * \param  arcType     The type of the arc, which dictates its rendered style.
@@ -1343,15 +1376,25 @@ static void arcLine(Msc               m,
                     unsigned int      ygradient,
                     unsigned int      startCol,
                     unsigned int      endCol,
+                    int               startColAct,
+                    int               endColAct,
                     const char       *arcLineCol,
                     bool              hasArrows,
                     const int         hasBiArrows,
                     const MscArcType  arcType)
 {
-    const unsigned int sx = (startCol * gOpts.entitySpacing) +
-                             (gOpts.entitySpacing / 2);
-    const unsigned int dx = (endCol * gOpts.entitySpacing) +
-                             (gOpts.entitySpacing / 2);
+    unsigned int sx = (startCol * gOpts.entitySpacing) + (gOpts.entitySpacing / 2);
+    unsigned int dx = (endCol * gOpts.entitySpacing) + (gOpts.entitySpacing / 2);
+
+    if(startColAct > 0)
+    {
+        sx += (startColAct - 1) * gOpts.activationWidth / 2 + (sx < dx ? gOpts.activationWidth / 2 : -(gOpts.activationWidth / 2));
+    }
+
+    if(endColAct > 0)
+    {
+        dx += (endColAct - 1) * gOpts.activationWidth / 2 + (sx > dx ? gOpts.activationWidth / 2 : -(gOpts.activationWidth / 2));
+    }
 
     /* Check if an explicit line colour is requested */
     if(arcLineCol != NULL)
@@ -1596,6 +1639,9 @@ int main(const int argc, const char *argv[])
     FILE            *ismap = NULL;
     ADrawOutputType  outType;
     ADrawColour     *entColourRef;
+    int             *entActivation;
+    int             *entActivationMin;
+    int             *entActivationMax;
     char            *outImage;
     Msc              m;
     unsigned int     w, h, row, col;
@@ -1867,6 +1913,11 @@ int main(const int argc, const char *argv[])
     /* Allocate storage for entity heading colours */
     entColourRef = malloc_s(MscGetNumEntities(m) * sizeof(ADrawColour));
 
+    /* Allocate storage for entity activation */
+    entActivation = malloc_s(MscGetNumEntities(m) * sizeof(int));
+    entActivationMin = malloc_s(MscGetNumEntities(m) * sizeof(int));
+    entActivationMax = malloc_s(MscGetNumEntities(m) * sizeof(int));
+
     /* Draw the entity headings */
     ei = MscEntityIterBegin(m);
     for(col = 0; col < MscGetNumEntities(m); col++)
@@ -1895,6 +1946,9 @@ int main(const int argc, const char *argv[])
         {
             entColourRef[col] = ADRAW_COL_BLACK;
         }
+
+        /* Initialize activations */
+        entActivation[col] = 0;
 
         MscNextEntity(&ei);
     }
@@ -1932,6 +1986,44 @@ int main(const int argc, const char *argv[])
             const unsigned int ymin = rowInfo[row].ymin;
             const unsigned int ymid = rowInfo[row].arcliney;
             const unsigned int ymax = rowInfo[row].ymax;
+
+            /* Lookahead to find all activations and deactivations in a row */
+            if(addLines)
+            {
+                unsigned int ent;
+                MscArcIter   peek;
+
+                for(ent = 0; ent < MscGetNumEntities(m); ent++)
+                {
+                    entActivationMin[ent] = entActivation[ent];
+                    entActivationMax[ent] = entActivation[ent];
+                }
+
+                peek = ai;
+                while(!MscArcIterEnd(&peek))
+                {
+                    if(MscGetArcType(&peek) == MSC_ARC_ACT)
+                    {
+                        int col = MscGetEntityIndex(m, MscGetArcSource(&peek));
+                        assert(col != -1);
+                        entActivationMax[col]++;
+                    }
+                    else if(MscGetArcType(&peek) == MSC_ARC_DEACT)
+                    {
+                        int col = MscGetEntityIndex(m, MscGetArcSource(&peek));
+                        assert(col != -1);
+                        entActivationMin[col]--;
+                    }
+
+                    MscNextArc(&peek);
+                    if(MscArcIterEnd(&peek))
+                        break;
+                    if(MscGetArcType(&peek) != MSC_ARC_PARALLEL)
+                        break;
+                    MscNextArc(&peek);
+                }
+            }
+
 #if 0
             /* For debug, mark the row spacing */
             drw.line(&drw, 0, ymin, 10, ymin);
@@ -1987,7 +2079,7 @@ int main(const int argc, const char *argv[])
                 /* Add in the entity lines */
                 if(addLines)
                 {
-                    entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef);
+                    entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef, entActivationMin);
                 }
 
                 /* Draw arcs to each entity */
@@ -1995,8 +2087,9 @@ int main(const int argc, const char *argv[])
                 {
                     if((signed)t != startCol)
                     {
-                        arcLine(m, ymid, arcGradient, startCol,
-                                t, arcLineColour, arcHasArrows,
+                        arcLine(m, ymid, arcGradient, startCol, t,
+                                entActivationMax[startCol], entActivationMax[t],
+                                arcLineColour, arcHasArrows,
                                 arcHasBiArrows, arcType);
                     }
                 }
@@ -2012,7 +2105,7 @@ int main(const int argc, const char *argv[])
                 {
                     if(addLines)
                     {
-                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef);
+                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef, entActivationMin);
                     }
                     arcBox(ymin, ymax, startCol, endCol, arcType, arcLineColour, arcTextBgColour);
                 }
@@ -2020,14 +2113,14 @@ int main(const int argc, const char *argv[])
                 {
                     if(addLines)
                     {
-                        entityLines(m, ymin, ymax + gOpts.arcSpacing, true /* dotted */, entColourRef);
+                        entityLines(m, ymin, ymax + gOpts.arcSpacing, true /* dotted */, entColourRef, entActivationMin);
                     }
                 }
                 else if(arcType == MSC_ARC_DIVIDER || arcType == MSC_ARC_SPACE)
                 {
                     if(addLines)
                     {
-                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef);
+                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef, entActivationMin);
                     }
 
                     /* Dividers also have a horizontal line at the middle */
@@ -2051,14 +2144,63 @@ int main(const int argc, const char *argv[])
                         }
                     }
                 }
+                else if(arcType == MSC_ARC_ACT)
+                {
+                    unsigned int x;
+
+                    if(addLines)
+                    {
+                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef, entActivationMin);
+                    }
+
+                    if(entActivation[startCol] >= 0)
+                    {
+                        entActivation[startCol]++;
+                    }
+
+                    x = (startCol * gOpts.entitySpacing) + (gOpts.entitySpacing / 2) + ((entActivation[startCol] - 1) * gOpts.activationWidth / 2);
+
+                    drw.setPen(&drw, ADRAW_COL_WHITE);
+                    drw.filledRectangle(&drw, x - gOpts.activationWidth / 2, ymid, x + gOpts.activationWidth / 2, ymax + gOpts.arcSpacing);
+
+                    drw.setPen(&drw, entColourRef[startCol]);
+                    drw.line(&drw, x - gOpts.activationWidth / 2, ymid, x + gOpts.activationWidth / 2, ymid);
+                    drw.line(&drw, x - gOpts.activationWidth / 2, ymid, x - gOpts.activationWidth / 2, ymax + gOpts.arcSpacing);
+                    drw.line(&drw, x + gOpts.activationWidth / 2, ymid, x + gOpts.activationWidth / 2, ymax + gOpts.arcSpacing);
+                }
+                else if(arcType == MSC_ARC_DEACT)
+                {
+                    unsigned int x;
+
+                    if(entActivation[startCol] > 0)
+                    {
+                        entActivation[startCol]--;
+                    }
+
+                    if(addLines)
+                    {
+                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef, entActivationMin);
+                    }
+
+                    x = (startCol * gOpts.entitySpacing) + (gOpts.entitySpacing / 2) + (entActivation[startCol] * gOpts.activationWidth / 2);
+
+                    drw.setPen(&drw, ADRAW_COL_WHITE);
+                    drw.filledRectangle(&drw, x - gOpts.activationWidth / 2, ymin, x + gOpts.activationWidth / 2, ymid);
+
+                    drw.setPen(&drw, entColourRef[startCol]);
+                    drw.line(&drw, x - gOpts.activationWidth / 2, ymid, x + gOpts.activationWidth / 2, ymid);
+                    drw.line(&drw, x - gOpts.activationWidth / 2, ymin, x - gOpts.activationWidth / 2, ymid);
+                    drw.line(&drw, x + gOpts.activationWidth / 2, ymin, x + gOpts.activationWidth / 2, ymid);
+                }
                 else
                 {
                     if(addLines)
                     {
-                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef);
+                        entityLines(m, ymin, ymax + gOpts.arcSpacing, false, entColourRef, entActivationMin);
                     }
-                    arcLine(m, ymid, arcGradient, startCol, endCol, arcLineColour,
-                            arcHasArrows, arcHasBiArrows, arcType);
+                    arcLine(m, ymid, arcGradient, startCol, endCol,
+                            entActivationMax[startCol], entActivationMax[endCol],
+                            arcLineColour, arcHasArrows, arcHasBiArrows, arcType);
                 }
             }
 
@@ -2083,7 +2225,7 @@ int main(const int argc, const char *argv[])
     /* Skip arcs may require the entity lines to be extended */
     entityLines(m,
                 rowInfo[(MscGetNumArcs(m) - MscGetNumParallelArcs(m)) - 1].ymax,
-                h, false, entColourRef);
+                h, false, entColourRef, entActivation);
 
     /* Close the image map if needed */
     if(ismap)
@@ -2093,6 +2235,9 @@ int main(const int argc, const char *argv[])
 
 #ifndef NDEBUG
     /* Free the allocated memory to allow leak detection */
+    free(entActivation);
+    free(entActivationMin);
+    free(entActivationMax);
     free(entColourRef);
     free(rowInfo);
     MscFree(m);

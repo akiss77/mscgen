@@ -72,7 +72,8 @@ void yyerror(void *unused, const char *str)
                                       "TOK_ATTR_TEXT_BGCOLOUR", "TOK_ATTR_ARC_TEXT_BGCOLOUR",
                                       "TOK_REL_LOSS_TO",        "TOK_REL_LOSS_FROM",
                                       "TOK_OPT_ARCGRADIENT",    "TOK_ATTR_ARC_SKIP",
-                                      "TOK_OPT_WORDWRAPARCS",   "TOK_REL_NOTE" };
+                                      "TOK_OPT_WORDWRAPARCS",   "TOK_REL_NOTE",
+                                      "TOK_LIFE_ACT",           "TOK_LIFE_DEACT" };
 
     static const char *tokRepl[] =  { "'{'",             "'}'",
                                       "'['",             "']'",
@@ -96,7 +97,8 @@ void yyerror(void *unused, const char *str)
                                       "'textbgcolour'",  "'arctextbgcolor'",
                                       "'-x'",            "'x-'",
                                       "'arcgradient'",   "'arcskip'",
-                                      "'wordwraparcs'",  "'note'" };
+                                      "'wordwraparcs'",  "'note'",
+                                      "'+'",             "'-'" };
 
     static const int tokArrayLen = sizeof(tokNames) / sizeof(char *);
 
@@ -239,6 +241,7 @@ Msc MscParse(FILE *in)
        TOK_REL_CALLBACK_BI TOK_REL_CALLBACK_TO TOK_REL_CALLBACK_FROM
        TOK_REL_BOX         TOK_REL_ABOX
        TOK_REL_RBOX        TOK_REL_NOTE
+       TOK_LIFE_ACT        TOK_LIFE_DEACT
        TOK_SPECIAL_ARC     TOK_OPT_HSCALE
        TOK_OPT_WIDTH       TOK_OPT_ARCGRADIENT
        TOK_OPT_WORDWRAPARCS
@@ -268,7 +271,7 @@ Msc MscParse(FILE *in)
 %type <arclist>    arclist
 %type <entity>     entity
 %type <entitylist> entitylist
-%type <arctype>    relation_box relation_line relation_bi relation_to relation_from
+%type <arctype>    relation_box relation_line relation_bi relation_to relation_from life_event
                    TOK_REL_SIG_BI TOK_REL_METHOD_BI TOK_REL_RETVAL_BI TOK_REL_CALLBACK_BI
                    TOK_REL_SIG_TO TOK_REL_METHOD_TO TOK_REL_RETVAL_TO TOK_REL_CALLBACK_TO TOK_REL_DOUBLE_BI
                    TOK_REL_SIG_FROM TOK_REL_METHOD_FROM TOK_REL_RETVAL_FROM TOK_REL_CALLBACK_FROM
@@ -276,6 +279,7 @@ Msc MscParse(FILE *in)
                    TOK_REL_LOSS_TO TOK_REL_LOSS_FROM
                    TOK_SPECIAL_ARC TOK_REL_BOX TOK_REL_ABOX TOK_REL_RBOX TOK_REL_NOTE
                    TOK_REL_SIG TOK_REL_METHOD TOK_REL_RETVAL TOK_REL_DOUBLE
+                   TOK_LIFE_ACT TOK_LIFE_DEACT
 %type <attrib>     attrlist attr
 %type <attribType> attrval
                    TOK_ATTR_LABEL TOK_ATTR_URL TOK_ATTR_ID TOK_ATTR_IDURL
@@ -360,6 +364,10 @@ arcrel:       TOK_SPECIAL_ARC
 {
     $$ = MscAllocArc(NULL, NULL, $1, lex_getlinenum());
 }
+            | life_event string
+{
+    $$ = MscAllocArc($2, $2, $1, lex_getlinenum());
+}
             | string relation_box string
 {
     $$ = MscAllocArc($1, $3, $2, lex_getlinenum());
@@ -393,6 +401,7 @@ arcrel:       TOK_SPECIAL_ARC
     $$ = MscAllocArc($3, strdup_s("*"), $2, lex_getlinenum());
 };
 
+life_event:    TOK_LIFE_ACT | TOK_LIFE_DEACT;
 relation_box:  TOK_REL_BOX | TOK_REL_ABOX | TOK_REL_RBOX | TOK_REL_NOTE;
 relation_line: TOK_REL_SIG | TOK_REL_METHOD | TOK_REL_RETVAL | TOK_REL_DOUBLE;
 relation_bi:   TOK_REL_SIG_BI | TOK_REL_METHOD_BI | TOK_REL_RETVAL_BI | TOK_REL_CALLBACK_BI | TOK_REL_DOUBLE_BI;

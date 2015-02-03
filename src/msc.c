@@ -523,8 +523,15 @@ void MscFree(struct MscTag *m)
         struct MscArcTag *next = arc->next;
 
         freeAttribList(arc->attr);
-        free(arc->dst);
-        free(arc->src);
+        if(arc->src != arc->dst)
+        {
+            free(arc->dst);
+            free(arc->src);
+        }
+        else
+        {
+            free(arc->src);
+        }
         free(arc);
 
         arc = next;

@@ -469,7 +469,7 @@ const char *MscPrettyAttribType(MscAttribType t)
         case MSC_ATTR_ARC_TEXT_BGCOLOUR: return "arctextbgcolour";
         case MSC_ATTR_NO_ARROWS:         return "noarrows";
         case MSC_ATTR_BI_ARROWS:         return "biarrows";
-		case MSC_ATTR_ARC_SKIP:          return "arcskip";
+        case MSC_ATTR_ARC_SKIP:          return "arcskip";
     }
 
     return "<unknown>";
